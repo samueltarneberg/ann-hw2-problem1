@@ -5,103 +5,129 @@ import numpy as np
 def format_data(data_set):
     data = []
     with open(data_set, "r") as f:
-        dat = csv.reader(f)
-        for row in dat:
+        csv_reader = csv.reader(f)
+        for row in csv_reader:
             data.append(row)
-    list_length = len(data)
-    x = [data[i][0:2] for i in range(list_length)]
-    t = [data[i][2] for i in range(list_length)]
-    return x, t
+    number_of_samples = len(data)
+    input_values = [data[i][0:2] for i in range(number_of_samples)]
+    targets = [data[i][2] for i in range(number_of_samples)]
+    return input_values, targets
 
-def perceptron(x , w , theta):
-        theta = np.array(theta,dtype='float')
-        x = np.array(x,dtype='float')
-        w = np.array(w,dtype='float')
-        wx = np.dot(w,x)
-        V = np.tanh(wx - theta)
-        return V
-
-
-
-def hidden_layer_neuron(n_epoch,x_values,targets,eta,M1,M2):
-    targets = np.array(targets,dtype='float')
-    x_values = np.array(x_values,dtype='float')
-
-    g_prim = lambda b: 1 - np.tanh(b)**2
-
-    w_1 = np.random.randn(M1,2) 
-    w_2 = np.random.randn(M2,M1) 
-    w_3 = np.random.randn(M2) 
-
-    theta_1 = np.zeros(M1)
-    theta_2 = np.zeros(M2)
-    theta_3 = 0   
-
-    for epoch in range(n_epoch):
-        indices = np.random.permutation(len(x_values))
-        for mu in indices:
+def two_layer_perceptron(input_values, weights, thresholds):
+        thresholds = np.array(thresholds,dtype='float')
+        input_values = np.array(input_values,dtype='float')
+        weights = np.array(weights,dtype='float')
+        weighted_input = np.dot(weights,input_values)
+        activations = np.tanh(weighted_input - thresholds)
+        return activations
 
 
 
-            V1 = perceptron(x_values[mu],w_1,theta_1)
-            V2 = perceptron(V1,w_2,theta_2)
-            O = perceptron(V2,w_3,theta_3)
-
-            output_error =  g_prim(np.dot(w_3,V2) - theta_3) * (targets[mu] - O)
-            error_2 = np.dot(output_error, w_3) * g_prim(np.dot(w_2,V1) - theta_2)
-            error_1 = np.dot(error_2, w_2) * g_prim(np.dot(w_1,x_values[mu]) - theta_1)
-
-            w_1 += eta * np.outer(error_1,x_values[mu])
-            w_2 += eta * np.outer(error_2,V1)
-            w_3 += eta * output_error * V2
-
-            theta_1 -= eta * error_1
-            theta_2 -= eta * error_2
-            theta_3 -= eta * output_error
-
-        C = validation(
-        x_validation,
-        t_validation,
-        w_1, w_2, w_3,
-        theta_1, theta_2, theta_3
-        )
-        print(epoch, C)
-     
-    return w_1,w_2,w_3,theta_1,theta_2,theta_3
-
-
-
-
-def validation(x_validation,t_validation,w_1,w_2,w_3,theta_1,theta_2,theta_3):
-    t_validation = np.array(t_validation,dtype='float')
-    x_validation = np.array(x_validation,dtype='float')
-    p_val = len(x_validation)
-
-    predicitons = []
-    error_list = []
-
-    for x, t in zip(x_validation, t_validation):
-        V1 = perceptron(x,w_1,theta_1)
-        V2 = perceptron(V1,w_2,theta_2)
-        O = perceptron(V2,w_3,theta_3)
-        O = 1 if O > 0 else -1
-        error = abs(O - t)
-        error_list.append(error)
-        predicitons.append(O)
+def train_two_layer_perceptron(number_of_epochs,
+                               training_inputs,
+                               training_targets,
+                               learning_rate,
+                               hidden_layer_1_size,
+                               hidden_layer_2_size):
     
-    C = 1 / (2*p_val) * sum(error_list)
+    training_targets = np.array(training_targets,dtype='float')
+    training_inputs = np.array(training_inputs,dtype='float')
 
-    return C 
+    tanh_derivative = lambda b: 1 - np.tanh(b)**2
 
-n_epoch = 100
-eta     = 0.01
-M1      = 10
-M2      = 8
+    weights_input_to_hidden_1 = np.random.randn(hidden_layer_1_size,2) 
+    weights_hidden_1_to_hidden_2 = np.random.randn(hidden_layer_2_size,hidden_layer_1_size) 
+    weights_hidden_2_to_output = np.random.randn(hidden_layer_2_size) 
 
-x_values, targets = format_data('training_set.csv')
-x_validation, t_validation = format_data('validation_set.csv')  
-w_1,w_2,w_3,theta_1,theta_2,theta_3 = hidden_layer_neuron(n_epoch,x_values,targets,eta,M1,M2)
-percentage = validation(x_validation,t_validation,w_1,w_2,w_3,theta_1,theta_2,theta_3)
+    thresholds_hidden_1 = np.zeros(hidden_layer_1_size)
+    thresholds_hidden_2 = np.zeros(hidden_layer_2_size)
+    threshold_output = 0   
+
+    for epoch_index in range(number_of_epochs):
+        sample_order = np.random.permutation(len(training_inputs))
+        for sample_index in sample_order:
+
+            hidden_1_activations = two_layer_perceptron(training_inputs[sample_index],
+                                                        weights_input_to_hidden_1,
+                                                        thresholds_hidden_1)
+            
+            hidden_2_activations = two_layer_perceptron(hidden_1_activations,
+                                                        weights_hidden_1_to_hidden_2,
+                                                        thresholds_hidden_2)
+            
+            output  = two_layer_perceptron(hidden_2_activations,
+                                           weights_hidden_2_to_output,
+                                           threshold_output)
+
+            output_delta =  tanh_derivative(np.dot(weights_hidden_2_to_output,hidden_2_activations) - threshold_output) * (training_targets[sample_index] - output)
+            hidden_2_delta = np.dot(output_delta, weights_hidden_2_to_output) * tanh_derivative(np.dot(weights_hidden_1_to_hidden_2,hidden_1_activations) - thresholds_hidden_2)
+            hidden_1_delta = np.dot(hidden_2_delta, weights_hidden_1_to_hidden_2) * tanh_derivative(np.dot(weights_input_to_hidden_1,training_inputs[sample_index]) - thresholds_hidden_1)
+
+            weights_input_to_hidden_1 += learning_rate * np.outer(hidden_1_delta,training_inputs[sample_index])
+            weights_hidden_1_to_hidden_2 += learning_rate * np.outer(hidden_2_delta,hidden_1_activations)
+            weights_hidden_2_to_output += learning_rate * output_delta * hidden_2_activations
+
+            thresholds_hidden_1 -= learning_rate * hidden_1_delta
+            thresholds_hidden_2 -= learning_rate * hidden_2_delta
+            threshold_output -= learning_rate * output_delta
+
+        validation_error = validation(
+        validation_inputs,
+        validation_targets,
+        weights_input_to_hidden_1, weights_hidden_1_to_hidden_2, weights_hidden_2_to_output,
+        thresholds_hidden_1, thresholds_hidden_2, threshold_output
+        )
+        print(epoch_index, validation_error)
+
+    return weights_input_to_hidden_1,weights_hidden_1_to_hidden_2,weights_hidden_2_to_output,thresholds_hidden_1,thresholds_hidden_2,threshold_output
+
+
+
+
+def validation(validation_inputs,
+               validation_targets,
+               weights_input_to_hidden_1,
+               weights_hidden_1_to_hidden_2,
+               weights_hidden_2_to_output,
+               thresholds_hidden_1,thresholds_hidden_2,
+               threshold_output):
+    
+    validation_targets = np.array(validation_targets,dtype='float')
+    validation_inputs = np.array(validation_inputs,dtype='float')
+    number_of_samples = len(validation_inputs)
+
+    predictions = []
+    sample_errors = []
+
+    for input_sample, target in zip(validation_inputs, validation_targets):
+        hidden_1_activations = two_layer_perceptron(input_sample,weights_input_to_hidden_1,thresholds_hidden_1)
+        hidden_2_activations = two_layer_perceptron(hidden_1_activations,weights_hidden_1_to_hidden_2,thresholds_hidden_2)
+        output = two_layer_perceptron(hidden_2_activations,weights_hidden_2_to_output,threshold_output)
+        output = 1 if output > 0 else -1
+        sample_error = abs(output - target)
+        sample_errors.append(sample_error)
+        predictions.append(output)
+    
+    validation_error = 1 / (2*number_of_samples) * sum(sample_errors)
+
+    return validation_error 
+
+number_of_epochs = 100
+learning_rate     = 0.01
+hidden_layer_1_size     = 10
+hidden_layer_2_size      = 8
+
+training_inputs, training_targets = format_data('training_set.csv')
+validation_inputs, validation_targets = format_data('validation_set.csv')  
+weights_input_to_hidden_1, weights_hidden_1_to_hidden_2 ,weights_hidden_2_to_output ,threshold_hidden_1 ,thresholds_hidden_2 ,threshold_output = train_two_layer_perceptron(number_of_epochs,training_inputs,training_targets,learning_rate,hidden_layer_1_size,hidden_layer_2_size)
+validation_error = validation(validation_inputs,
+                              validation_targets,
+                              weights_input_to_hidden_1,
+                              weights_hidden_1_to_hidden_2,
+                              weights_hidden_2_to_output,
+                              threshold_hidden_1,
+                              thresholds_hidden_2,
+                              threshold_output)
           
 
 
